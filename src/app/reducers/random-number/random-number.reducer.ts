@@ -1,11 +1,13 @@
 import * as actions from '../../actions/random-number.actions';
 import { on, createReducer } from '@ngrx/store';
+import { environment } from 'src/environments/environment';
 
 export interface RandomNumberState {
   min: number;
   max: number;
   randomNumber: number;
   errorMsg: string;
+  pollingInterval: number;
 }
 
 const initialState: RandomNumberState = {
@@ -13,6 +15,7 @@ const initialState: RandomNumberState = {
   max: 99,
   randomNumber: 0,
   errorMsg: '',
+  pollingInterval: environment.pollingInterval,
 };
 
 export const randomNumberReducer = createReducer(

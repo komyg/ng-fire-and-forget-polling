@@ -12,5 +12,5 @@ export const pollingSuccess = createAction(
 
 export const pollingError = createAction(
   '[Polling] error',
-  props<{ error: Error }>()
+  props<{ error: any }>()
 );

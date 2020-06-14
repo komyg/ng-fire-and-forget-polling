@@ -11,3 +11,8 @@ export const selectRandomNumber = createSelector(
   selectRandomNumberFeature,
   (state: RandomNumberState) => state.randomNumber
 );
+
+export const selectPollingInterval = createSelector(
+  selectRandomNumberFeature,
+  (state: RandomNumberState) => state.pollingInterval
+);

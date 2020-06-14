@@ -16,6 +16,7 @@ describe('Random Number Reducer', () => {
       max: 100,
       randomNumber: 0,
       errorMsg: '',
+      pollingInterval: 10,
     };
   });
 
