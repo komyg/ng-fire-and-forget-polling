@@ -356,3 +356,151 @@ There are a lot of things happening on our effect to create the polling. So we w
 - `this.randomNumberService.getRandomInteger(action.min, action.max)`: this is the actual call for our random number service. It returns an Observable containing a random number.
 - `map((randomNumber) => pollingSuccess({ randomNumber })),`: if the call to our random number service succeeds, we map the result to the `pollingSuccess` action.
 - `catchError((error) =>`: if the call to our random number service fails, we return the `pollingError` action.
+
+### Testing our effect
+
+Now that we have our effect created, let's add a unit test for it. Create the file: *src/app/effects/random-number/random-number.effect.spec.ts* and paste the contents below:
+
+```javascript
+import { TestBed } from '@angular/core/testing';
+import { provideMockActions } from '@ngrx/effects/testing';
+import { selectPollingInterval } from 'src/app/state/random-number/random-number.selector';
+import { RandomNumberService } from 'src/app/services/random-number/random-number.service';
+import { Action } from '@ngrx/store';
+import { Observable } from 'rxjs';
+import { provideMockStore } from '@ngrx/store/testing';
+import { cold, getTestScheduler, hot } from 'jasmine-marbles';
+import { RandomNumberEffects } from './random-number.effect';
+import {
+  startPolling,
+  pollingSuccess,
+  pollingError,
+} from 'src/app/actions/random-number.actions';
+
+describe('Random Number Effect', () => {
+  let actions$: Observable<Action>;
+  let effects: RandomNumberEffects;
+
+  beforeEach(() => {
+    TestBed.configureTestingModule({
+      providers: [
+        RandomNumberEffects,
+        {
+          provide: RandomNumberService,
+          useValue: jasmine.createSpyObj('service-spy', ['getRandomInteger']),
+        },
+        provideMockActions(() => actions$),
+        provideMockStore({
+          selectors: [{ selector: selectPollingInterval, value: 30 }],
+        }),
+      ],
+    });
+
+    effects = TestBed.inject(RandomNumberEffects);
+  });
+
+  it('should successfully poll for random numbers', () => {
+    const service = TestBed.inject(RandomNumberService) as jasmine.SpyObj<
+      RandomNumberService
+    >;
+
+    service.getRandomInteger.and.returnValues(
+      cold('a|', { a: 42 }),
+      cold('b|', { b: 33 }),
+      cold('c|', { c: 2 })
+    );
+
+    actions$ = hot('a', { a: startPolling({ min: 0, max: 99 }) });
+    const expected = hot('a--b--c', {
+      a: pollingSuccess({ randomNumber: 42 }),
+      b: pollingSuccess({ randomNumber: 33 }),
+      c: pollingSuccess({ randomNumber: 2 }),
+    });
+
+    const stopTimer = hot('-------a', { a: 'stop' });
+    const testScheduler = getTestScheduler();
+
+    expect(
+      effects.randomNumberPolling$({ scheduler: testScheduler, stopTimer })
+    ).toBeObservable(expected);
+  });
+
+  it('should handle a timeout', () => {
+    const service = TestBed.inject(RandomNumberService) as jasmine.SpyObj<
+      RandomNumberService
+    >;
+
+    service.getRandomInteger.and.returnValues(
+      cold('----a|', { a: 42 }),
+      cold('b|', { b: 33 }),
+      cold('-c|', { c: 2 })
+    );
+
+    actions$ = hot('a', { a: startPolling({ min: 0, max: 99 }) });
+    const expected = hot('---b---c', {
+      b: pollingSuccess({ randomNumber: 33 }),
+      c: pollingSuccess({ randomNumber: 2 }),
+    });
+
+    const stopTimer = hot('-------a', { a: 'stop' });
+    const testScheduler = getTestScheduler();
+
+    expect(
+      effects.randomNumberPolling$({ scheduler: testScheduler, stopTimer })
+    ).toBeObservable(expected);
+  });
+
+  it('should handle an error', () => {
+    const service = TestBed.inject(RandomNumberService) as jasmine.SpyObj<
+      RandomNumberService
+    >;
+
+    service.getRandomInteger.and.returnValues(
+      cold('-#'),
+      cold('b|', { b: 33 }),
+      cold('c|', { c: 2 })
+    );
+
+    actions$ = hot('a', { a: startPolling({ min: 0, max: 99 }) });
+    const expected = hot('-a-b--c', {
+      a: pollingError({ error: 'error' }),
+      b: pollingSuccess({ randomNumber: 33 }),
+      c: pollingSuccess({ randomNumber: 2 }),
+    });
+
+    const stopTimer = hot('-------a', { a: 'stop' });
+    const testScheduler = getTestScheduler();
+
+    expect(
+      effects.randomNumberPolling$({ scheduler: testScheduler, stopTimer })
+    ).toBeObservable(expected);
+  });
+});
+```
+
+In the test above we are making extensive use of marble tests. I took the summary below from [this article](https://medium.com/@bencabanes/marble-testing-observable-introduction-1f5ad39231c). If you've never worked with marble tests, I strongly suggest you read it.
+
+>To write a test with marble diagrams you will need to stick to a convention of characters that will help visualize the observable stream:
+>
+>- During the tests, the sens of time (when values are emitted) is handle by the RxJS TestScheduler
+>- (dash): simulate the passage of time, one dash correspond to a frame which can be perceived as 10ms in our tests, —--- is 40 ms
+>- a-z (a to z): represent an emission, -a--b---c stands for “emit a at 20ms, b at 50ms, c at 90ms”
+>- | (pipe): emit a completed (end of the stream), ---a-| stands for emit ‘a’ at 40ms then complete (60ms)
+>- \# (pound sign): indicate an error (end of the stream), —--a--# emit a at 40ms then an error at 70ms
+>- ( ) (parenthesis): multiple values together in the same unit of time, —--(ab|) stands for emit a b at 40ms then complete (40ms)
+>- ^ (caret): indicate a subscription point, —^-- subscription starting at ^
+>- ! (exclamation point): indicate the end of a subscription point, —^--! subscription starting at ^ and ending at !
+>
+>These strings are a powerful syntax that will permit you to simulate the passage of time, emit a value, a completion, an error etc.. all that, without creating the observable yourself.
+>
+>You also have some methods to parse and create observables from your diagrams:
+>**cold()**
+>
+>`cold(marbles: string, values?: object, error?: any)` Subscription starts when test begins:
+>
+>`cold(--a--b--|, { a: 'Hello', b: 'World' })` → Emit ‘Hello’ at 30ms and ‘World’ at 60ms, complete at 90ms.
+>**hot()**
+>
+>`hot(marbles: string, values?: object, error?: any)` Behaves like subscription starts at point of caret:
+>
+>`hot(--^--a--b--|, { a: 'Hello', b: 'World' })` → Subscription begins at point of caret, then emit ‘Hello’ at 30ms and ‘World’ at 60ms, complete at 90ms.
