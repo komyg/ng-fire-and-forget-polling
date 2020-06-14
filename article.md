@@ -480,27 +480,27 @@ describe('Random Number Effect', () => {
 
 In the test above we are making extensive use of marble tests. I took the summary below from [this article](https://medium.com/@bencabanes/marble-testing-observable-introduction-1f5ad39231c). If you've never worked with marble tests, I strongly suggest you read it.
 
->To write a test with marble diagrams you will need to stick to a convention of characters that will help visualize the observable stream:
->
->- During the tests, the sens of time (when values are emitted) is handle by the RxJS TestScheduler
->- (dash): simulate the passage of time, one dash correspond to a frame which can be perceived as 10ms in our tests, —--- is 40 ms
->- a-z (a to z): represent an emission, -a--b---c stands for “emit a at 20ms, b at 50ms, c at 90ms”
->- | (pipe): emit a completed (end of the stream), ---a-| stands for emit ‘a’ at 40ms then complete (60ms)
->- \# (pound sign): indicate an error (end of the stream), —--a--# emit a at 40ms then an error at 70ms
->- ( ) (parenthesis): multiple values together in the same unit of time, —--(ab|) stands for emit a b at 40ms then complete (40ms)
->- ^ (caret): indicate a subscription point, —^-- subscription starting at ^
->- ! (exclamation point): indicate the end of a subscription point, —^--! subscription starting at ^ and ending at !
->
->These strings are a powerful syntax that will permit you to simulate the passage of time, emit a value, a completion, an error etc.. all that, without creating the observable yourself.
->
->You also have some methods to parse and create observables from your diagrams:
->**cold()**
->
->`cold(marbles: string, values?: object, error?: any)` Subscription starts when test begins:
->
->`cold(--a--b--|, { a: 'Hello', b: 'World' })` → Emit ‘Hello’ at 30ms and ‘World’ at 60ms, complete at 90ms.
->**hot()**
->
->`hot(marbles: string, values?: object, error?: any)` Behaves like subscription starts at point of caret:
->
->`hot(--^--a--b--|, { a: 'Hello', b: 'World' })` → Subscription begins at point of caret, then emit ‘Hello’ at 30ms and ‘World’ at 60ms, complete at 90ms.
+To write a test with marble diagrams you will need to stick to a convention of characters that will help visualize the observable stream:
+
+- During the tests, the sens of time (when values are emitted) is handle by the RxJS TestScheduler
+- (dash): simulate the passage of time, one dash correspond to a frame which can be perceived as 10ms in our tests, —--- is 40 ms
+- a-z (a to z): represent an emission, -a--b---c stands for “emit a at 20ms, b at 50ms, c at 90ms”
+- | (pipe): emit a completed (end of the stream), ---a-| stands for emit ‘a’ at 40ms then complete (60ms)
+- \# (pound sign): indicate an error (end of the stream), —--a--# emit a at 40ms then an error at 70ms
+- ( ) (parenthesis): multiple values together in the same unit of time, —--(ab|) stands for emit a b at 40ms then complete (40ms)
+- ^ (caret): indicate a subscription point, —^-- subscription starting at ^
+- ! (exclamation point): indicate the end of a subscription point, —^--! subscription starting at ^ and ending at !
+
+These strings are a powerful syntax that will permit you to simulate the passage of time, emit a value, a completion, an error etc.. all that, without creating the observable yourself.
+
+You also have some methods to parse and create observables from your diagrams:
+**cold()**
+
+`cold(marbles: string, values?: object, error?: any)` Subscription starts when test begins:
+
+`cold(--a--b--|, { a: 'Hello', b: 'World' })` → Emit ‘Hello’ at 30ms and ‘World’ at 60ms, complete at 90ms.
+**hot()**
+
+`hot(marbles: string, values?: object, error?: any)` Behaves like subscription starts at point of caret:
+
+`hot(--^--a--b--|, { a: 'Hello', b: 'World' })` → Subscription begins at point of caret, then emit ‘Hello’ at 30ms and ‘World’ at 60ms, complete at 90ms.
