@@ -376,15 +376,19 @@ import {
   pollingSuccess,
   pollingError,
 } from 'src/app/actions/random-number.actions';
+import { TestScheduler } from 'rxjs/testing';
 
 describe('Random Number Effect', () => {
   let actions$: Observable<Action>;
   let effects: RandomNumberEffects;
+  let service: jasmine.SpyObj<RandomNumberService>;
+  let testScheduler: TestScheduler;
 
   beforeEach(() => {
     TestBed.configureTestingModule({
       providers: [
         RandomNumberEffects,
+        // Mock Random number service
         {
           provide: RandomNumberService,
           useValue: jasmine.createSpyObj('service-spy', ['getRandomInteger']),
@@ -397,28 +401,34 @@ describe('Random Number Effect', () => {
     });
 
     effects = TestBed.inject(RandomNumberEffects);
-  });
-
-  it('should successfully poll for random numbers', () => {
-    const service = TestBed.inject(RandomNumberService) as jasmine.SpyObj<
+    service = TestBed.inject(RandomNumberService) as jasmine.SpyObj<
       RandomNumberService
     >;
 
+    // Get the test scheduler so that we can simulate the async behavior
+    testScheduler = getTestScheduler();
+  });
+
+  it('should successfully poll for random numbers', () => {
+    // Mock service response
     service.getRandomInteger.and.returnValues(
       cold('a|', { a: 42 }),
       cold('b|', { b: 33 }),
       cold('c|', { c: 2 })
     );
 
+    // Call the action observable with the Action that will be processed by the effect.
     actions$ = hot('a', { a: startPolling({ min: 0, max: 99 }) });
+
+    // Create the expected result
     const expected = hot('a--b--c', {
       a: pollingSuccess({ randomNumber: 42 }),
       b: pollingSuccess({ randomNumber: 33 }),
       c: pollingSuccess({ randomNumber: 2 }),
     });
 
+    // Make sure we stop the timer at the end of the test
     const stopTimer = hot('-------a', { a: 'stop' });
-    const testScheduler = getTestScheduler();
 
     expect(
       effects.randomNumberPolling$({ scheduler: testScheduler, stopTimer })
@@ -426,10 +436,6 @@ describe('Random Number Effect', () => {
   });
 
   it('should handle a timeout', () => {
-    const service = TestBed.inject(RandomNumberService) as jasmine.SpyObj<
-      RandomNumberService
-    >;
-
     service.getRandomInteger.and.returnValues(
       cold('----a|', { a: 42 }),
       cold('b|', { b: 33 }),
@@ -443,7 +449,6 @@ describe('Random Number Effect', () => {
     });
 
     const stopTimer = hot('-------a', { a: 'stop' });
-    const testScheduler = getTestScheduler();
 
     expect(
       effects.randomNumberPolling$({ scheduler: testScheduler, stopTimer })
@@ -451,10 +456,6 @@ describe('Random Number Effect', () => {
   });
 
   it('should handle an error', () => {
-    const service = TestBed.inject(RandomNumberService) as jasmine.SpyObj<
-      RandomNumberService
-    >;
-
     service.getRandomInteger.and.returnValues(
       cold('-#'),
       cold('b|', { b: 33 }),
@@ -469,7 +470,6 @@ describe('Random Number Effect', () => {
     });
 
     const stopTimer = hot('-------a', { a: 'stop' });
-    const testScheduler = getTestScheduler();
 
     expect(
       effects.randomNumberPolling$({ scheduler: testScheduler, stopTimer })
@@ -504,3 +504,16 @@ You also have some methods to parse and create observables from your diagrams:
 `hot(marbles: string, values?: object, error?: any)` Behaves like subscription starts at point of caret:
 
 `hot(--^--a--b--|, { a: 'Hello', b: 'World' })` → Subscription begins at point of caret, then emit ‘Hello’ at 30ms and ‘World’ at 60ms, complete at 90ms.
+
+Here is the breakdown of the main parts of the first test:
+
+- `testScheduler = getTestScheduler();`: We have to get the test scheduler from the jasmine marbles in order the test the async behaviors such as the timer and the timeout.
+- `service.getRandomInteger.and.returnValues(cold('a|', { a: 42 }), cold('b|', { b: 33 }), cold('c|', { c: 2 }));`: mock our service so that it returns test observables.
+- `const expected = hot('a--b--c', { a: pollingSuccess({ randomNumber: 42 }), b: pollingSuccess({ randomNumber: 33 }), c: pollingSuccess(randomNumber: 2 }), });`: here we setup our test's expected result. Notice that the polling effect on the marble diagram and that we don't need to keep calling the `action$` observable to make the polling work.
+- `const stopTimer = hot('-------a', { a: 'stop' });`: here we create an observable that emits at the end of the test. If we don't do this, the polling will continue to run after we are done, and this will generate an error on the `expect` assertion, because we will have more returns from our effect than we expect.
+- `expect(effects.randomNumberPolling$({ scheduler: testScheduler, stopTimer })).toBeObservable(expected);`: here are testing our side effect. Notice that we pass both the `testScheduler` and the `stopTimer` as arguments. This way we can override the default async scheduler from rxjs and stop the `timer` once our test is done.
+
+The second test very similar to the first one, but in this case we are forcing a timeout using an observable that will emit a result after the specified polling interval of 30: `cold('----a|', { a: 42 }),`. Our effect will handle the timeout error and try again.
+
+The last test is also similar to the other ones, but in this case we are simulating an error using this observable: `cold('-#'),`. Our effect should handle this error and try again.
+

@@ -12,15 +12,19 @@ import {
   pollingSuccess,
   pollingError,
 } from 'src/app/actions/random-number.actions';
+import { TestScheduler } from 'rxjs/testing';
 
 describe('Random Number Effect', () => {
   let actions$: Observable<Action>;
   let effects: RandomNumberEffects;
+  let service: jasmine.SpyObj<RandomNumberService>;
+  let testScheduler: TestScheduler;
 
   beforeEach(() => {
     TestBed.configureTestingModule({
       providers: [
         RandomNumberEffects,
+        // Mock Random number service
         {
           provide: RandomNumberService,
           useValue: jasmine.createSpyObj('service-spy', ['getRandomInteger']),
@@ -33,28 +37,34 @@ describe('Random Number Effect', () => {
     });
 
     effects = TestBed.inject(RandomNumberEffects);
-  });
-
-  it('should successfully poll for random numbers', () => {
-    const service = TestBed.inject(RandomNumberService) as jasmine.SpyObj<
+    service = TestBed.inject(RandomNumberService) as jasmine.SpyObj<
       RandomNumberService
     >;
 
+    // Get the test scheduler so that we can simulate the async behavior
+    testScheduler = getTestScheduler();
+  });
+
+  it('should successfully poll for random numbers', () => {
+    // Mock service response
     service.getRandomInteger.and.returnValues(
       cold('a|', { a: 42 }),
       cold('b|', { b: 33 }),
       cold('c|', { c: 2 })
     );
 
+    // Call the action observable with the Action that will be processed by the effect.
     actions$ = hot('a', { a: startPolling({ min: 0, max: 99 }) });
+
+    // Create the expected result
     const expected = hot('a--b--c', {
       a: pollingSuccess({ randomNumber: 42 }),
       b: pollingSuccess({ randomNumber: 33 }),
       c: pollingSuccess({ randomNumber: 2 }),
     });
 
+    // Make sure we stop the timer at the end of the test
     const stopTimer = hot('-------a', { a: 'stop' });
-    const testScheduler = getTestScheduler();
 
     expect(
       effects.randomNumberPolling$({ scheduler: testScheduler, stopTimer })
@@ -62,10 +72,6 @@ describe('Random Number Effect', () => {
   });
 
   it('should handle a timeout', () => {
-    const service = TestBed.inject(RandomNumberService) as jasmine.SpyObj<
-      RandomNumberService
-    >;
-
     service.getRandomInteger.and.returnValues(
       cold('----a|', { a: 42 }),
       cold('b|', { b: 33 }),
@@ -79,7 +85,6 @@ describe('Random Number Effect', () => {
     });
 
     const stopTimer = hot('-------a', { a: 'stop' });
-    const testScheduler = getTestScheduler();
 
     expect(
       effects.randomNumberPolling$({ scheduler: testScheduler, stopTimer })
@@ -87,10 +92,6 @@ describe('Random Number Effect', () => {
   });
 
   it('should handle an error', () => {
-    const service = TestBed.inject(RandomNumberService) as jasmine.SpyObj<
-      RandomNumberService
-    >;
-
     service.getRandomInteger.and.returnValues(
       cold('-#'),
       cold('b|', { b: 33 }),
@@ -105,7 +106,6 @@ describe('Random Number Effect', () => {
     });
 
     const stopTimer = hot('-------a', { a: 'stop' });
-    const testScheduler = getTestScheduler();
 
     expect(
       effects.randomNumberPolling$({ scheduler: testScheduler, stopTimer })
