@@ -27,12 +27,12 @@ For the initial setup add the following packages:
 
 ## Environment
 
-Before web begin we should also add an environment variable. Edit the *src/environments/environment.ts* and *src/environments/environment.prod.ts* files to add a polling interval of 10 seconds (or 10.000 milliseconds):
+Before web begin we should also add an environment variable. Edit the *src/environments/environment.ts* and *src/environments/environment.prod.ts* files to add a polling interval of 3 seconds (or 3.000 milliseconds):
 
 ```javascript
 export const environment = {
   production: true,
-  pollingInterval: 10000,
+  pollingInterval: 3000,
 };
 ```
 
@@ -357,6 +357,10 @@ There are a lot of things happening on our effect to create the polling. So we w
 - `map((randomNumber) => pollingSuccess({ randomNumber })),`: if the call to our random number service succeeds, we map the result to the `pollingSuccess` action.
 - `catchError((error) =>`: if the call to our random number service fails, we return the `pollingError` action.
 
+### Registering our effect
+
+To register our effect, open the *src/app.module.ts* file and add it to the effects declaration: `EffectsModule.forRoot([RandomNumberEffects]),`.
+
 ### Testing our effect
 
 Now that we have our effect created, let's add a unit test for it. Create the file: *src/app/effects/random-number/random-number.effect.spec.ts* and paste the contents below:
@@ -516,4 +520,21 @@ Here is the breakdown of the main parts of the first test:
 The second test very similar to the first one, but in this case we are forcing a timeout using an observable that will emit a result after the specified polling interval of 30: `cold('----a|', { a: 42 }),`. Our effect will handle the timeout error and try again.
 
 The last test is also similar to the other ones, but in this case we are simulating an error using this observable: `cold('-#'),`. Our effect should handle this error and try again.
+
+## Components
+
+Now that we have our effect up and running, let's create a component that subscribe to it.
+
+### App component
+
+First le's remove the default app compoment and add a new one in: *src/compoments/app* folder. To start delete the files:
+
+- src/app.component.html
+- src/app.component.scss
+- src/app.component.ts
+- src/app.component.spec.ts
+
+Then recreate the files above inside the *src/components/app* folder. You can use the angular cli template generation command: `ng generate components/app` to speed things up. Don't forget to update your `app.module.ts` file.
+
+>Note: you don't actually have to do this. You could just replace the contents of the app component files with the code below, but I think this way things are more organized.
 

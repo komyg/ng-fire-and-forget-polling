@@ -4,7 +4,7 @@
 
 export const environment = {
   production: false,
-  pollingInterval: 10000,
+  pollingInterval: 3000,
 };
 
 /*

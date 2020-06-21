@@ -1,4 +1,4 @@
 export const environment = {
   production: true,
-  pollingInterval: 10000,
+  pollingInterval: 3000,
 };

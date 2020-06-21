@@ -1,0 +1,13 @@
+<form class="root" [formGroup]="inputForm" (ngSubmit)="onSubmit()">
+  <mat-form-field>
+    <mat-label>Minimum Value</mat-label>
+    <input matInput formControlName="minInput" />
+  </mat-form-field>
+  <mat-form-field>
+    <mat-label>Maximum Value</mat-label>
+    <input matInput formControlName="maxInput" />
+  </mat-form-field>
+  <button id="submit-btn" type="submit" mat-flat-button color="primary">
+    Start polling!
+  </button>
+</form>
