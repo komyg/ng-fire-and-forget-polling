@@ -2,6 +2,8 @@
 
 In this tutorial I would like to show you how can you poll a service using Observables (RxJS) and the NgRx Store and Effects. It assumes that you have a basic knowledge of Angular, Typescript, NgRx and RxJS.
 
+The full code for this tutorial is available in this [repository](https://github.com/komyg/ng-fire-and-forget-polling).
+
 ## Our Goal
 
 The goal of this tutorial is to setup a fire and forget polling of a service. By fire and forget I mean to say that I would like to call the starting action of the polling only once and have the polling go on forever.
@@ -523,18 +525,328 @@ The last test is also similar to the other ones, but in this case we are simulat
 
 ## Components
 
-Now that we have our effect up and running, let's create a component that subscribe to it.
+Now that we have our effect up and running, let's create some components.
+
+>Note: the fastest way to generate a new component is by using the Angular CLI Schematics and the command: `ng generate component [component name]`.
+
+### Random number
+
+This component will show our current random number. It will subscribe to the `selectRandomNumber` selector using the async pipe and display our random number as it is updated by our service.
+
+*src/app/components/random-number/random-number.component.html*:
+
+```html
+<div class="root">
+  <h3 id="random-number">Your random number is: {{ randomNumber$ | async }}</h3>
+</div>
+```
+
+*src/app/components/random-number/random-number.component.scss*: this file is empty.
+
+*src/app/components/random-number/random-number.component.ts*:
+
+```javascript
+import { Component, OnInit } from '@angular/core';
+import { Store, select } from '@ngrx/store';
+import { Observable } from 'rxjs';
+import { selectRandomNumber } from 'src/app/state/random-number/random-number.selector';
+
+@Component({
+  selector: 'app-random-number',
+  templateUrl: './random-number.component.html',
+  styleUrls: ['./random-number.component.scss'],
+})
+export class RandomNumberComponent implements OnInit {
+  randomNumber$: Observable<number>;
+
+  constructor(private store$: Store) {}
+
+  ngOnInit(): void {
+    this.randomNumber$ = this.store$.pipe(select(selectRandomNumber));
+  }
+}
+```
+
+*src/app/components/random-number/random-number.component.spec.ts*:
+
+```javascript
+import {
+  async,
+  ComponentFixture,
+  TestBed,
+  fakeAsync,
+  tick,
+} from '@angular/core/testing';
+
+import { RandomNumberComponent } from './random-number.component';
+import { provideMockStore, MockStore } from '@ngrx/store/testing';
+import { selectRandomNumber } from 'src/app/state/random-number/random-number.selector';
+import { By } from '@angular/platform-browser';
+
+describe('RandomNumberComponent', () => {
+  let component: RandomNumberComponent;
+  let fixture: ComponentFixture<RandomNumberComponent>;
+
+  beforeEach(async(() => {
+    TestBed.configureTestingModule({
+      providers: [
+        provideMockStore({
+          selectors: [{ selector: selectRandomNumber, value: 42 }],
+        }),
+      ],
+      declarations: [RandomNumberComponent],
+    }).compileComponents();
+  }));
+
+  beforeEach(() => {
+    fixture = TestBed.createComponent(RandomNumberComponent);
+    component = fixture.componentInstance;
+    fixture.detectChanges();
+  });
+
+  it('should create', () => {
+    expect(component).toBeTruthy();
+  });
+
+  it('should display the current random number', () => {
+    const randomNumber = fixture.debugElement.query(By.css('#random-number'));
+    expect(randomNumber.nativeElement.textContent).toContain(42);
+  });
+});
+```
+
+### The Min Max Input Component
+
+This component allows our users to choose the min and max value of our random numbers and allows them to start the polling process. Notice that you can always restart the polling with new values.
+
+This component uses the Angular Reactive Forms.
+
+*src/app/components/min-max-input/min-max-input.component.html*:
+
+```html
+<form class="root" [formGroup]="inputForm" (ngSubmit)="onSubmit()">
+  <mat-form-field>
+    <mat-label>Minimum Value</mat-label>
+    <input matInput formControlName="minInput" />
+  </mat-form-field>
+  <mat-form-field>
+    <mat-label>Maximum Value</mat-label>
+    <input matInput formControlName="maxInput" />
+  </mat-form-field>
+  <button id="submit-btn" type="submit" mat-flat-button color="primary">
+    Start polling!
+  </button>
+</form>
+```
+
+*src/app/components/min-max-input/min-max-input.component.scss*:
+
+```scss
+.root {
+  display: flex;
+  flex-direction: column;
+  align-content: center;
+}
+```
+
+*src/app/components/min-max-input/min-max-input.component.ts*:
+
+```javascript
+import { Component, OnInit } from '@angular/core';
+import { FormGroup, FormControl, Validators } from '@angular/forms';
+import { Store } from '@ngrx/store';
+import { startPolling } from 'src/app/actions/random-number.actions';
+
+@Component({
+  selector: 'app-min-max-input',
+  templateUrl: './min-max-input.component.html',
+  styleUrls: ['./min-max-input.component.scss'],
+})
+export class MinMaxInputComponent implements OnInit {
+  inputForm: FormGroup;
+
+  constructor(private store$: Store) {}
+
+  ngOnInit(): void {
+    this.inputForm = new FormGroup({
+      minInput: new FormControl(0, [
+        Validators.required,
+        Validators.pattern('^[0-9]*$'),
+      ]),
+      maxInput: new FormControl(99, [
+        Validators.required,
+        Validators.pattern('^[0-9]*$'),
+      ]),
+    });
+  }
+
+  onSubmit() {
+    if (this.inputForm.invalid) {
+      console.warn('The form is invalid');
+      return;
+    }
+
+    this.store$.dispatch(
+      startPolling({
+        min: this.inputForm.get('minInput').value,
+        max: this.inputForm.get('maxInput').value,
+      })
+    );
+  }
+}
+```
+
+*src/app/components/min-max-input/min-max-input.component.spec.ts*:
+
+```javascript
+import { async, ComponentFixture, TestBed } from '@angular/core/testing';
+import { MinMaxInputComponent } from './min-max-input.component';
+import { ReactiveFormsModule } from '@angular/forms';
+import { TestbedHarnessEnvironment } from '@angular/cdk/testing/testbed';
+import { HarnessLoader } from '@angular/cdk/testing';
+import { MatButtonHarness } from '@angular/material/button/testing';
+import { provideMockStore, MockStore } from '@ngrx/store/testing';
+import { startPolling } from 'src/app/actions/random-number.actions';
+import { MatButtonModule } from '@angular/material/button';
+
+describe('MinMaxInputComponent', () => {
+  let component: MinMaxInputComponent;
+  let fixture: ComponentFixture<MinMaxInputComponent>;
+  let loader: HarnessLoader;
+
+  beforeEach(async(() => {
+    TestBed.configureTestingModule({
+      imports: [ReactiveFormsModule, MatButtonModule],
+      declarations: [MinMaxInputComponent],
+      providers: [provideMockStore()],
+    }).compileComponents();
+  }));
+
+  beforeEach(() => {
+    fixture = TestBed.createComponent(MinMaxInputComponent);
+    loader = TestbedHarnessEnvironment.loader(fixture);
+    component = fixture.componentInstance;
+    fixture.detectChanges();
+  });
+
+  it('should create', () => {
+    expect(component).toBeTruthy();
+  });
+
+  it('should call an action when the form is submitted', async () => {
+    const mockStore = TestBed.inject(MockStore);
+    spyOn(mockStore, 'dispatch');
+
+    const submitBtn = await loader.getHarness(MatButtonHarness);
+
+    component.inputForm.get('minInput').setValue(10);
+    component.inputForm.get('maxInput').setValue(100);
+
+    await submitBtn.click();
+
+    expect(mockStore.dispatch).toHaveBeenCalledWith(
+      startPolling({ min: 10, max: 100 })
+    );
+  });
+});
+```
 
 ### App component
 
-First le's remove the default app compoment and add a new one in: *src/compoments/app* folder. To start delete the files:
+This is the entry point app component. To make things more organized, I moved it from the *src/app* folder to the *src/app/components/app* folder.
 
-- src/app.component.html
-- src/app.component.scss
-- src/app.component.ts
-- src/app.component.spec.ts
+*src/app/components/app/app.component.html*:
 
-Then recreate the files above inside the *src/components/app* folder. You can use the angular cli template generation command: `ng generate components/app` to speed things up. Don't forget to update your `app.module.ts` file.
+```html
+<div class="root">
+  <div class="app-content">
+    <h1 class="app-header">Angular Fire and Forget Polling</h1>
+    <app-random-number></app-random-number>
+    <app-min-max-input></app-min-max-input>
+  </div>
+</div>
+```
 
->Note: you don't actually have to do this. You could just replace the contents of the app component files with the code below, but I think this way things are more organized.
+*src/app/components/app/app.component.scss*:
 
+```scss
+.root {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+
+  padding: 0 3rem;
+
+  @media (min-width: 1200px) {
+    margin: 0 20rem;
+  }
+
+  @media (min-width: 992px) {
+    margin: 0 10rem;
+  }
+
+  .app-content {
+    width: 100%;
+  }
+
+  .app-header {
+    margin: 1rem 0;
+    text-align: center;
+  }
+}
+```
+
+*src/app/components/app/app.component.ts*:
+
+```javascript
+import { Component, OnInit } from '@angular/core';
+
+@Component({
+  selector: 'app-root',
+  templateUrl: './app.component.html',
+  styleUrls: ['./app.component.scss'],
+})
+export class AppComponent implements OnInit {
+  constructor() {}
+
+  ngOnInit(): void {}
+}
+```
+
+*src/app/components/app/app.component.spec.ts*:
+
+```javascript
+import { async, ComponentFixture, TestBed } from '@angular/core/testing';
+import { AppComponent } from './app.component';
+import { NO_ERRORS_SCHEMA } from '@angular/core';
+
+describe('AppComponent', () => {
+  let component: AppComponent;
+  let fixture: ComponentFixture<AppComponent>;
+
+  beforeEach(async(() => {
+    TestBed.configureTestingModule({
+      declarations: [AppComponent],
+      schemas: [NO_ERRORS_SCHEMA],
+    }).compileComponents();
+  }));
+
+  beforeEach(() => {
+    fixture = TestBed.createComponent(AppComponent);
+    component = fixture.componentInstance;
+    fixture.detectChanges();
+  });
+
+  it('should create', () => {
+    expect(component).toBeTruthy();
+  });
+});
+```
+
+### Registering the components
+
+Don't forget to register all the components in the *app.module*: `declarations: [AppComponent, RandomNumberComponent, MinMaxInputComponent],`
+
+## Conclusion
+
+Now that everything is created you can either run the unit tests using the command: `ng test` or run the app itself using the command: `ng serve`.
