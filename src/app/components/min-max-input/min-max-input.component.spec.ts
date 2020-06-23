@@ -8,7 +8,7 @@ import { provideMockStore, MockStore } from '@ngrx/store/testing';
 import { startPolling } from 'src/app/actions/random-number.actions';
 import { MatButtonModule } from '@angular/material/button';
 
-fdescribe('MinMaxInputComponent', () => {
+describe('MinMaxInputComponent', () => {
   let component: MinMaxInputComponent;
   let fixture: ComponentFixture<MinMaxInputComponent>;
   let loader: HarnessLoader;
