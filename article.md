@@ -1,18 +1,18 @@
 # Angular Fire and Forget Polling with NgRx and Unit Tests
 
-In this tutorial I would like to show you how can you poll a service using Observables (RxJS) and the NgRx Store and Effects. It assumes that you have a basic knowledge of Angular, Typescript, NgRx and RxJS.
+In this tutorial I would like to show you how you can poll a service using Observables (RxJS) and the NgRx Store and Effects. It assumes that you have a basic knowledge of Angular, Typescript, NgRx and RxJS.
 
 The full code for this tutorial is available in this [repository](https://github.com/komyg/ng-fire-and-forget-polling).
 
 ## Our Goal
 
-The goal of this tutorial is to setup a fire and forget polling of a service. By fire and forget I mean to say that I would like to call the starting action of the polling only once and have the polling go on forever.
+The goal of this tutorial is to setup a fire and forget polling. By fire and forget I mean to say that I would like to call the starting action of the polling only once and have the polling go on forever.
 
-That being said, it would be easier to setup a polling strategy where I would call a given action from a component every X seconds, but then, if the user navigates away from this component, then the polling would stop, and this would violate our goal above.
+That being said, it would be easier to setup a polling strategy where I would call a given action from a component every X seconds, but then, if the user navigates away from this component, the polling would stop and this would violate our goal above.
 
-Therefore our implementation strategy will be the following:
+Our implementation strategy will be the following:
 
-1. Create a mock service that will be polled every 15 seconds.
+1. Create a mock service that will be polled every 3 seconds.
 2. Create actions and reducers to start the polling and handle its results.
 3. Create an Effect that will do the actual polling of our service and will dispatch the success and fail actions.
 4. Create a component that will listen to the polling's results.
@@ -63,7 +63,7 @@ export class RandomNumberService {
 }
 ```
 
-What this service does is just generate a random integer between max and min and return it as an `Observable`. As state before, the purpose of the Observable here is to simulate the behavior of an API call.
+What this service does is just generate a random integer between max and min and return it as an `Observable`. As stated before, the purpose of the Observable here is to simulate the behavior of an API call.
 
 ### Unit testing our service
 
@@ -172,9 +172,9 @@ To register our random number reducer, create the file: *src/app/state/state.ts*
 ```javascript
 import { ActionReducerMap } from '@ngrx/store';
 import {
-  randomNumberReducer,
   RandomNumberState,
-} from './random-number/random-number.reducer';
+  randomNumberReducer,
+} from '../reducers/random-number/random-number.reducer';
 
 export interface State {
   randomNumberFeature: RandomNumberState;
@@ -295,7 +295,6 @@ import {
   map,
   switchMap,
   takeUntil,
-  timeout,
   withLatestFrom,
 } from 'rxjs/operators';
 import {
@@ -348,8 +347,8 @@ export class RandomNumberEffects {
 
 There are a lot of things happening on our effect to create the polling. So we will break it down from the top:
 
-- `() => ({ scheduler = asyncScheduler, stopTimer = EMPTY } = {}) =>`: we start our effect by passing two variables to it: `scheduler` and `topTimer`, both which have default values of `asyncScheduler` and `EMTPY` respectively. They are here, because we want to be able to replace the default `asyncScheduler` provided by RxJS so that we can run our tests.
-- `ofType(startPolling),`: we use this filter to execute or effect only after the `startPolling` action has finished.
+- `() => ({ scheduler = asyncScheduler, stopTimer = EMPTY } = {}) =>`: we start our effect by passing two variables to it: `scheduler` and `stopTimer`, both of which have the default values of `asyncScheduler` and `EMTPY` respectively. They are here, because we want to be able to replace the default `asyncScheduler` provided by RxJS in our tests.
+- `ofType(startPolling),`: we use this filter to run our effect when the action `startPolling` is called.
 - `withLatestFrom(this.store$.pipe(select(selectPollingInterval))),`: here we take the polling interval from our store state and pass it forward to our test (we could use the value directly from the `environment` variables, but I wanted to illustrate this use case).
 - `switchMap(([action, pollingInterval]) =>`: we use the `switchMap` here, because it will subscribe only to the latest observable returned by the `timer`, this means that if our service does not return a response within the polling interval, we cancel this request and make a new one. A more through explanation of what a `switchMap` does is available in the [RxJS documentation](https://www.learnrxjs.io/learn-rxjs/operators/transformation/switchmap#why-use-switchmap).
 - `timer(0, pollingInterval, scheduler)`: this the part of our effect that does the polling. It will make a request to our service immediately and then do it again after the time prescribed in the `pollingInterval` has passed. Notice that we are passing the `scheduler` variable to it. This is done to make our effect testable with marbles.
@@ -484,7 +483,7 @@ describe('Random Number Effect', () => {
 });
 ```
 
-In the test above we are making extensive use of marble tests. I took the summary below from [this article](https://medium.com/@bencabanes/marble-testing-observable-introduction-1f5ad39231c). If you've never worked with marble tests, I strongly suggest you read it.
+In the test above we are making extensive use of marble tests. I took the summary below from [this article](https://medium.com/@bencabanes/marble-testing-observable-introduction-1f5ad39231c). If you've never worked with marble tests, I strongly suggest you read it in its entirety.
 
 To write a test with marble diagrams you will need to stick to a convention of characters that will help visualize the observable stream:
 
@@ -514,10 +513,10 @@ You also have some methods to parse and create observables from your diagrams:
 Here is the breakdown of the main parts of the first test:
 
 - `testScheduler = getTestScheduler();`: We have to get the test scheduler from the jasmine marbles in order the test the async behaviors such as the timer and the timeout.
-- `service.getRandomInteger.and.returnValues(cold('a|', { a: 42 }), cold('b|', { b: 33 }), cold('c|', { c: 2 }));`: mock our service so that it returns test observables.
-- `const expected = hot('a--b--c', { a: pollingSuccess({ randomNumber: 42 }), b: pollingSuccess({ randomNumber: 33 }), c: pollingSuccess(randomNumber: 2 }), });`: here we setup our test's expected result. Notice that the polling effect on the marble diagram and that we don't need to keep calling the `action$` observable to make the polling work.
-- `const stopTimer = hot('-------a', { a: 'stop' });`: here we create an observable that emits at the end of the test. If we don't do this, the polling will continue to run after we are done, and this will generate an error on the `expect` assertion, because we will have more returns from our effect than we expect.
-- `expect(effects.randomNumberPolling$({ scheduler: testScheduler, stopTimer })).toBeObservable(expected);`: here are testing our side effect. Notice that we pass both the `testScheduler` and the `stopTimer` as arguments. This way we can override the default async scheduler from rxjs and stop the `timer` once our test is done.
+- `service.getRandomInteger.and.returnValues(cold('a|', { a: 42 }), cold('b|', { b: 33 }), cold('c|', { c: 2 }));`: mock our service so that it returns test observables each time it is called.
+- `const expected = hot('a--b--c', { a: pollingSuccess({ randomNumber: 42 }), b: pollingSuccess({ randomNumber: 33 }), c: pollingSuccess(randomNumber: 2 }), });`: here we setup our test's expected result. Notice the polling effect on the marble diagram and that we don't need to keep calling the `action$` observable to make the polling work.
+- `const stopTimer = hot('-------a', { a: 'stop' });`: here we create an observable that emits at the end of the test. If we don't do this, the polling will continue to run after we are done, and this will generate an error on the `expect` assertion.
+- `expect(effects.randomNumberPolling$({ scheduler: testScheduler, stopTimer })).toBeObservable(expected);`: here are testing our effect. Notice that we pass both the `testScheduler` and the `stopTimer` as arguments. This way we can override the default async scheduler from RxJS and stop the `timer` once our test is done.
 
 The second test very similar to the first one, but in this case we are forcing a timeout using an observable that will emit a result after the specified polling interval of 30: `cold('----a|', { a: 42 }),`. Our effect will handle the timeout error and try again.
 
@@ -531,7 +530,9 @@ Now that we have our effect up and running, let's create some components.
 
 ### Random number
 
-This component will show our current random number. It will subscribe to the `selectRandomNumber` selector using the async pipe and display our random number as it is updated by our service.
+This component will subscribe to the `selectRandomNumber` selector using the async pipe and display our random number as it is updated by our service.
+
+Schematics command: `ng g components/random-number`
 
 *src/app/components/random-number/random-number.component.html*:
 
