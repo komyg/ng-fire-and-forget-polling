@@ -1,13 +1,7 @@
-import {
-  async,
-  ComponentFixture,
-  TestBed,
-  fakeAsync,
-  tick,
-} from '@angular/core/testing';
+import { async, ComponentFixture, TestBed } from '@angular/core/testing';
 
 import { RandomNumberComponent } from './random-number.component';
-import { provideMockStore, MockStore } from '@ngrx/store/testing';
+import { provideMockStore } from '@ngrx/store/testing';
 import { selectRandomNumber } from 'src/app/state/random-number/random-number.selector';
 import { By } from '@angular/platform-browser';
 

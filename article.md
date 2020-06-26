@@ -571,16 +571,10 @@ export class RandomNumberComponent implements OnInit {
 *src/app/components/random-number/random-number.component.spec.ts*:
 
 ```javascript
-import {
-  async,
-  ComponentFixture,
-  TestBed,
-  fakeAsync,
-  tick,
-} from '@angular/core/testing';
+import { async, ComponentFixture, TestBed } from '@angular/core/testing';
 
 import { RandomNumberComponent } from './random-number.component';
-import { provideMockStore, MockStore } from '@ngrx/store/testing';
+import { provideMockStore } from '@ngrx/store/testing';
 import { selectRandomNumber } from 'src/app/state/random-number/random-number.selector';
 import { By } from '@angular/platform-browser';
 
@@ -620,7 +614,20 @@ describe('RandomNumberComponent', () => {
 
 This component allows our users to choose the min and max value of our random numbers and allows them to start the polling process. Notice that you can always restart the polling with new values.
 
-This component uses the Angular Reactive Forms.
+This component uses the Angular Reactive Forms, so you have to add an import to the `ReactiveFormsModule` in the *src/app.module.ts* file. You should also add imports to the Angular Material components that we are using:
+
+```javascript
+/* [...] */
+imports: [
+    BrowserModule,
+    ReactiveFormsModule,
+    MatFormFieldModule,
+    MatButtonModule,
+    MatInputModule,
+/* [...] */
+```
+
+Schematics command: `ng g component components/min-max-input`
 
 *src/app/components/min-max-input/min-max-input.component.html*:
 
