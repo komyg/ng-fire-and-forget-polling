@@ -1,6 +1,6 @@
 # Angular Fire and Forget Polling
 
-This is the code for the tutorial: ZZZ. In it I would like ot show you how you can poll a service using Observables (RxJS) and the NgRx Store and Effects. It assumes that you have a basic knowledge of Angular, Typescript, NgRx and RxJS.
+This is the code for the tutorial: https://dev.to/komyg/angular-fire-and-forget-polling-with-ngrx-rxjs-and-unit-tests-3ab5. In it I would like ot show you how you can poll a service using Observables (RxJS) and the NgRx Store and Effects. It assumes that you have a basic knowledge of Angular, Typescript, NgRx and RxJS.
 
 ## Available Scripts
 
